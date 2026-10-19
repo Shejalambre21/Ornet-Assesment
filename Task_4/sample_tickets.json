@@ -1,0 +1,74 @@
+[
+  {
+    "id": "SAMPLE-1",
+    "title": "Duplicate Payment & Subscription Lockout (Assessment Example)",
+    "customer_id": "CUST-2041",
+    "request_text": "My payment was deducted twice, and I still cannot access my purchased subscription.",
+    "expected_category": "Billing",
+    "expected_priority": "High",
+    "expected_escalate": true
+  },
+  {
+    "id": "SAMPLE-2",
+    "title": "Account Compromised / Unauthorized Login Alert",
+    "customer_id": "CUST-3819",
+    "request_text": "I received an alert for an unauthorized login from an unknown device and now I am completely locked out of my account.",
+    "expected_category": "Account Access",
+    "expected_priority": "High",
+    "expected_escalate": true
+  },
+  {
+    "id": "SAMPLE-3",
+    "title": "Production API 500 Outage",
+    "customer_id": "CUST-5012",
+    "request_text": "Our production integration is down because your REST API endpoint /v2/orders is returning 500 Internal Server Error for all users.",
+    "expected_category": "Technical",
+    "expected_priority": "High",
+    "expected_escalate": true
+  },
+  {
+    "id": "SAMPLE-4",
+    "title": "CSV Analytics Export Bug (Medium Technical)",
+    "customer_id": "CUST-1190",
+    "request_text": "When I try to export the monthly analytics report to CSV, the download fails with a timeout error on Firefox.",
+    "expected_category": "Technical",
+    "expected_priority": "Medium",
+    "expected_escalate": false
+  },
+  {
+    "id": "SAMPLE-5",
+    "title": "Password Reset Link Delay (Medium Account Access)",
+    "customer_id": "CUST-6204",
+    "request_text": "I forgot my password and clicked reset password three times, but the recovery email has not arrived in my inbox.",
+    "expected_category": "Account Access",
+    "expected_priority": "Medium",
+    "expected_escalate": false
+  },
+  {
+    "id": "SAMPLE-6",
+    "title": "Invoice GST / Tax Number Correction (Medium Billing)",
+    "customer_id": "CUST-7315",
+    "request_text": "Could you please update our company GST tax number on last month's billing invoice and send a revised receipt?",
+    "expected_category": "Billing",
+    "expected_priority": "Medium",
+    "expected_escalate": false
+  },
+  {
+    "id": "SAMPLE-7",
+    "title": "Dark Mode Feature Request (Low General)",
+    "customer_id": "CUST-8420",
+    "request_text": "Feature request: It would love to see a dark mode theme option and keyboard shortcuts added to the web dashboard.",
+    "expected_category": "General",
+    "expected_priority": "Low",
+    "expected_escalate": false
+  },
+  {
+    "id": "SAMPLE-8",
+    "title": "Ambiguous / Vague Support Request (Escalation Guardrail)",
+    "customer_id": "CUST-9901",
+    "request_text": "It is not working at all, please fix it!",
+    "expected_category": "General",
+    "expected_priority": "Medium",
+    "expected_escalate": true
+  }
+]

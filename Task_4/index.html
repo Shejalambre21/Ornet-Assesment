@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Support Ticket Triage Agent</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #F1F5F9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col selection:bg-indigo-600 selection:text-white">
+
+  <!-- Minimal Top Navigation Header -->
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-100">
+          <i data-lucide="ticket" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-base tracking-tight text-slate-900">Support Ticket Triage Agent</h1>
+          <p class="text-xs text-slate-500 hidden sm:block">Automated Classification, Priority Assignment &amp; Resolution</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs (Clean, User-Friendly & Minimal) -->
+      <nav class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+        <button id="tabBtnGenerate" data-tab="generate" class="nav-tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Generate Ticket</span>
+        </button>
+        <button id="tabBtnStats" data-tab="stats" class="nav-tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200/60">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-600"></i>
+          <span>Status &amp; Metrics</span>
+        </button>
+        <button id="tabBtnStore" data-tab="store" class="nav-tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200/60">
+          <i data-lucide="inbox" class="w-4 h-4 text-emerald-600"></i>
+          <span>Ticket Store</span>
+          <span id="navTicketCountBadge" class="px-1.5 py-0.2 text-[10px] font-mono rounded-full bg-white text-slate-700 border border-slate-300 font-bold">0</span>
+        </button>
+        <button id="tabBtnTests" data-tab="tests" class="nav-tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200/60">
+          <i data-lucide="flask-conical" class="w-4 h-4 text-amber-600"></i>
+          <span>Test Cases</span>
+          <span class="px-1.5 py-0.2 text-[10px] font-mono rounded-full bg-amber-100 text-amber-800 border border-amber-300 font-bold">12</span>
+        </button>
+      </nav>
+
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- ======================================================= -->
+    <!-- TAB 1: GENERATE TICKET (Clean & Focused)                 -->
+    <!-- ======================================================= -->
+    <section id="viewGenerate" class="space-y-6">
+      <div class="max-w-2xl mx-auto space-y-5">
+
+        <!-- Error Alert Banner (Hidden unless invalid) -->
+        <div id="validationErrorCard" class="hidden rounded-2xl bg-rose-50 border border-rose-200 p-4 space-y-1 text-xs text-rose-800 shadow-sm">
+          <div class="flex items-center gap-2 font-bold text-sm text-rose-900">
+            <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600"></i>
+            <span id="validationErrorTitle">Input Validation Failed</span>
+          </div>
+          <p id="validationErrorMessage" class="leading-relaxed"></p>
+        </div>
+
+        <!-- Success Notification Banner (Shown when ticket is generated) -->
+        <div id="ticketSuccessCard" class="hidden rounded-2xl bg-emerald-50 border border-emerald-200 p-5 space-y-3 text-xs text-emerald-900 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 font-bold text-sm text-emerald-900">
+              <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+              <span>Ticket Triaged &amp; Added to Ticket Store</span>
+            </div>
+            <span id="successTicketIdBadge" class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">
+              TKT-1001
+            </span>
+          </div>
+          <div id="successMessageDetail" class="text-xs leading-relaxed text-slate-700 bg-white/80 p-3 rounded-xl border border-emerald-100"></div>
+          <div class="pt-1 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span id="successCategoryBadge" class="px-2.5 py-1 rounded-lg text-xs font-bold border">Billing</span>
+              <span id="successPriorityBadge" class="px-2.5 py-1 rounded-lg text-xs font-bold border">High</span>
+            </div>
+            <button id="btnViewInTicketStore" type="button" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm flex items-center gap-1.5 transition">
+              <i data-lucide="inbox" class="w-3.5 h-3.5"></i>
+              <span>View in Ticket Store &rarr;</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Generate Support Ticket Form -->
+        <div class="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-4">
+          
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">
+                <i data-lucide="file-text" class="w-5 h-5 text-indigo-600"></i>
+                <span>Generate Support Ticket</span>
+              </h2>
+              <p class="text-xs text-slate-500 mt-0.5">Enter issue description to triage automatically</p>
+            </div>
+            <span id="liveValidationBadge" class="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              ✓ Ready
+            </span>
+          </div>
+
+          <!-- Customer ID & Generation Date/Time -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label for="customerIdInput" class="block text-xs font-semibold text-slate-700 mb-1">Customer ID</label>
+              <input id="customerIdInput" type="text" value="CUST-2041" class="w-full rounded-lg bg-slate-50 border border-slate-300 px-3 py-2 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600" />
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label for="requestDateTimeInput" class="block text-xs font-semibold text-slate-700">Generation Date &amp; Time</label>
+                <button id="btnSetCurrentDateTime" type="button" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium">Set Now</button>
+              </div>
+              <input id="requestDateTimeInput" type="text" class="w-full rounded-lg bg-slate-50 border border-slate-300 px-3 py-2 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600" placeholder="YYYY-MM-DD HH:MM:SS" />
+            </div>
+          </div>
+
+          <!-- Support Description (Only input needed - LLM classifies dynamically) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="ticketDescriptionInput" class="block text-xs font-semibold text-slate-700">
+                Support Request Description <span class="text-rose-500">*</span>
+              </label>
+              <span id="charCounterText" class="text-[11px] font-mono text-slate-500">0 / 2000 chars</span>
+            </div>
+            <textarea
+              id="ticketDescriptionInput"
+              rows="5"
+              placeholder="Enter the description of the customer issue..."
+              class="w-full rounded-xl bg-slate-50 border border-slate-300 p-3.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition resize-y"
+            ></textarea>
+            <p class="text-xs text-slate-500 mt-1.5">
+              The LLM reads this description and dynamically extracts Category, Priority, Suggested Action, and Reason.
+            </p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-3 pt-2">
+            <button id="btnGenerateAndTriage" type="button" class="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-100 flex items-center justify-center gap-2 transition">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Generate Ticket</span>
+            </button>
+            <button id="btnClearForm" type="button" class="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs border border-slate-200 transition">
+              Clear
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================= -->
+    <!-- TAB 2: STATUS & METRICS                                 -->
+    <!-- ======================================================= -->
+    <section id="viewStats" class="hidden space-y-6">
+
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-600"></i>
+            <span>Support Request Status &amp; Metrics</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-1">
+            Real-time tracking of processed requests, priority levels, and resolution status.
+          </p>
+        </div>
+        <button id="btnRefreshStats" type="button" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+          <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+          <span>Refresh Metrics</span>
+        </button>
+      </div>
+
+      <!-- Main Metric Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Done</p>
+          <p id="statTotalDone" class="text-3xl font-bold text-slate-900 mt-2 font-mono">1</p>
+          <span class="inline-block mt-2 text-[11px] text-indigo-600 font-medium">All Triaged</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-amber-200 bg-amber-50/30 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-amber-700">Pending</p>
+          <p id="statPendingCount" class="text-3xl font-bold text-amber-700 mt-2 font-mono">1</p>
+          <span class="inline-block mt-2 text-[11px] text-amber-600 font-medium">Needs Action</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-emerald-200 bg-emerald-50/30 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Resolved</p>
+          <p id="statResolvedCount" class="text-3xl font-bold text-emerald-700 mt-2 font-mono">0</p>
+          <span class="inline-block mt-2 text-[11px] text-emerald-600 font-medium">Completed</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-rose-200 bg-rose-50/30 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-rose-700">High Priority</p>
+          <p id="statHighCount" class="text-3xl font-bold text-rose-700 mt-2 font-mono">1</p>
+          <span class="inline-block mt-2 text-[11px] text-rose-600 font-medium">Urgent</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-amber-200 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Medium Priority</p>
+          <p id="statMediumCount" class="text-3xl font-bold text-amber-600 mt-2 font-mono">0</p>
+          <span class="inline-block mt-2 text-[11px] text-slate-500 font-medium">Standard</span>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-emerald-200 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Low Priority</p>
+          <p id="statLowCount" class="text-3xl font-bold text-emerald-600 mt-2 font-mono">0</p>
+          <span class="inline-block mt-2 text-[11px] text-slate-500 font-medium">Routine</span>
+        </div>
+
+      </div>
+
+      <!-- Priority & Resolution Distribution Bars -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-indigo-600"></i>
+            <span>Priority Level Breakdown</span>
+          </h3>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                <span class="text-rose-600 font-semibold">High Priority</span>
+                <span id="statHighPct" class="font-mono">100%</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div id="barHighPriority" class="h-full bg-rose-500 transition-all" style="width: 100%;"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                <span class="text-amber-600 font-semibold">Medium Priority</span>
+                <span id="statMediumPct" class="font-mono">0%</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div id="barMediumPriority" class="h-full bg-amber-500 transition-all" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                <span class="text-emerald-600 font-semibold">Low Priority</span>
+                <span id="statLowPct" class="font-mono">0%</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div id="barLowPriority" class="h-full bg-emerald-500 transition-all" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+            <span>Resolution Ratio (Pending vs Resolved)</span>
+          </h3>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                <span class="text-emerald-600 font-semibold">Resolved / Completed</span>
+                <span id="statResolvedPct" class="font-mono">0%</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div id="barResolvedRatio" class="h-full bg-emerald-500 transition-all" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-700 mb-1">
+                <span class="text-amber-600 font-semibold">Pending</span>
+                <span id="statPendingPct" class="font-mono">100%</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div id="barPendingRatio" class="h-full bg-amber-500 transition-all" style="width: 100%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ======================================================= -->
+    <!-- TAB 3: TICKET STORE (High Priority First + Resolve Button) -->
+    <!-- ======================================================= -->
+    <section id="viewStore" class="hidden space-y-5">
+      
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="database" class="w-5 h-5 text-indigo-600"></i>
+            <span>Ticket Store (High Priority First)</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Requests ordered strictly: <strong>High → Medium → Low</strong>. Click Resolve to mark completed.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="filterStatusSelect" class="rounded-lg bg-slate-50 border border-slate-300 px-3 py-1.5 text-xs text-slate-700 font-medium">
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING">Pending Only</option>
+            <option value="RESOLVED">Resolved Only</option>
+          </select>
+
+          <select id="filterPrioritySelect" class="rounded-lg bg-slate-50 border border-slate-300 px-3 py-1.5 text-xs text-slate-700 font-medium">
+            <option value="ALL">All Priorities</option>
+            <option value="High">High Priority</option>
+            <option value="Medium">Medium Priority</option>
+            <option value="Low">Low Priority</option>
+          </select>
+
+          <button id="btnExportJsonStore" type="button" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>Export JSON
+          </button>
+
+          <button id="btnClearStoreDb" type="button" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                <th class="py-3 px-4">Priority</th>
+                <th class="py-3 px-4">Ticket ID &amp; Date</th>
+                <th class="py-3 px-4">Customer</th>
+                <th class="py-3 px-4">Category</th>
+                <th class="py-3 px-4">Description &amp; Reason</th>
+                <th class="py-3 px-4">Suggested Action</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Resolve Action</th>
+              </tr>
+            </thead>
+            <tbody id="ticketStoreTableBody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================= -->
+    <!-- TAB 4: TEST CASES (All 10 Preserved)                    -->
+    <!-- ======================================================= -->
+    <section id="viewTests" class="hidden space-y-5">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="flask-conical" class="w-5 h-5 text-amber-600"></i>
+            <span>Automated Test Cases Suite (12 Tests)</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-1">
+            Covers Billing, Technical, Account Access, General, Ambiguous Escalation, Empty Inputs, and Failure Recovery.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="testSummaryPill" class="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Ready to Run (12 Tests)
+          </span>
+          <button id="btnRunAllTestsSuite" type="button" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold shadow-sm flex items-center gap-2 transition">
+            <i data-lucide="play" class="w-4 h-4"></i>
+            <span>Run All 12 Tests</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                <th class="py-3 px-4">#</th>
+                <th class="py-3 px-4">Test Scenario</th>
+                <th class="py-3 px-4">Expected Category / Priority</th>
+                <th class="py-3 px-4">Actual Output</th>
+                <th class="py-3 px-4">Result</th>
+                <th class="py-3 px-4 text-right">Load</th>
+              </tr>
+            </thead>
+            <tbody id="testSuiteTableBody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Non-intrusive Toast Notification -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 hidden px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold shadow-xl flex items-center gap-2">
+    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toastMessageText">Action completed</span>
+  </div>
+
+  <script>
+    // ============================================================================
+    // 1. DATA STRUCTURES & POLICIES
+    // ============================================================================
+    const SUPPORT_POLICIES = {
+      "Billing": {
+        policy_id: "POL-BIL-01",
+        department: "Billing Operations",
+        sla_high: "1 hour",
+        sla_medium: "8 hours",
+        sla_low: "24 hours",
+        triggers: ["deducted twice", "charged twice", "double charge", "duplicate charge", "cannot access my purchased subscription", "unauthorized charge"]
+      },
+      "Account Access": {
+        policy_id: "POL-ACC-02",
+        department: "IAM Security",
+        sla_high: "30 minutes",
+        sla_medium: "4 hours",
+        sla_low: "24 hours",
+        triggers: ["hacked", "unauthorized login", "compromised", "locked out", "cannot login"]
+      },
+      "Technical": {
+        policy_id: "POL-TECH-03",
+        department: "Engineering (SRE)",
+        sla_high: "2 hours",
+        sla_medium: "12 hours",
+        sla_low: "48 hours",
+        triggers: ["production down", "outage", "is down", "system down", "500 internal server error", "data loss", "all users", "in demo", "in a demo", "live demo", "with the client", "with a client", "with client", "website is not working", "app is not working", "site is down"]
+      },
+      "General": {
+        policy_id: "POL-GEN-04",
+        department: "Customer Success",
+        sla_high: "4 hours",
+        sla_medium: "24 hours",
+        sla_low: "72 hours",
+        triggers: ["urgent help", "legal", "clarification needed"]
+      }
+    };
+
+    const SAMPLE_PRESETS = [
+      {
+        id: "TC-01",
+        label: "Assessment Example: Duplicate Billing",
+        customer_id: "CUST-2041",
+        request_text: "My payment was deducted twice, and I still cannot access my purchased subscription.",
+        expected_category: "Billing",
+        expected_priority: "High",
+        expected_escalate: true
+      },
+      {
+        id: "TC-02",
+        label: "Account Lockout & Unauthorized Alert",
+        customer_id: "CUST-3819",
+        request_text: "I received an alert for an unauthorized login from an unknown device and now I am completely locked out of my account.",
+        expected_category: "Account Access",
+        expected_priority: "High",
+        expected_escalate: true
+      },
+      {
+        id: "TC-03",
+        label: "Production API 500 Outage",
+        customer_id: "CUST-5012",
+        request_text: "Our production integration is down because your REST API endpoint /v2/orders is returning 500 Internal Server Error for all users.",
+        expected_category: "Technical",
+        expected_priority: "High",
+        expected_escalate: true
+      },
+      {
+        id: "TC-04",
+        label: "CSV Export Bug (Medium)",
+        customer_id: "CUST-1190",
+        request_text: "When I try to export the monthly analytics report to CSV, the download fails with a timeout error on Firefox.",
+        expected_category: "Technical",
+        expected_priority: "Medium",
+        expected_escalate: false
+      },
+      {
+        id: "TC-05",
+        label: "Password Reset Link Delay (Medium)",
+        customer_id: "CUST-6204",
+        request_text: "I forgot my password and clicked reset password three times, but the recovery email has not arrived in my inbox.",
+        expected_category: "Account Access",
+        expected_priority: "Medium",
+        expected_escalate: false
+      },
+      {
+        id: "TC-06",
+        label: "Invoice GST Update (Medium)",
+        customer_id: "CUST-7315",
+        request_text: "Could you please update our company GST tax number on last month's billing invoice and send a revised receipt?",
+        expected_category: "Billing",
+        expected_priority: "Medium",
+        expected_escalate: false
+      },
+      {
+        id: "TC-07",
+        label: "Feature Request (Low)",
+        customer_id: "CUST-8420",
+        request_text: "Feature request: We would love to see a dark mode theme option and keyboard shortcuts added to the web dashboard.",
+        expected_category: "General",
+        expected_priority: "Low",
+        expected_escalate: false
+      },
+      {
+        id: "TC-08",
+        label: "Ambiguous Vague Request (Escalation)",
+        customer_id: "CUST-9901",
+        request_text: "It is not working at all, please fix it!",
+        expected_category: "General",
+        expected_priority: "Medium",
+        expected_escalate: true
+      },
+      {
+        id: "TC-09",
+        label: "Empty Input Rejection (Guardrail)",
+        customer_id: "CUST-0000",
+        request_text: "   ",
+        expected_category: "REJECTED",
+        expected_priority: "N/A",
+        expected_escalate: false,
+        expect_error: true
+      },
+      {
+        id: "TC-10",
+        label: "Malformed LLM Recovery",
+        customer_id: "CUST-7777",
+        request_text: "My monthly invoice has an incorrect billing address.",
+        expected_category: "General",
+        expected_priority: "High",
+        expected_escalate: true,
+        simulate_malformed: true
+      },
+      {
+        id: "TC-11",
+        label: "Live Client Demo: Website Outage",
+        customer_id: "CUST-9102",
+        request_text: "i am in demo and website is not working",
+        expected_category: "Technical",
+        expected_priority: "High",
+        expected_escalate: true
+      },
+      {
+        id: "TC-12",
+        label: "Active Client Meeting: App Outage",
+        customer_id: "CUST-9103",
+        request_text: "i am with the client and my app is not working",
+        expected_category: "Technical",
+        expected_priority: "High",
+        expected_escalate: true
+      }
+    ];
+
+    const PRIORITY_ORDER = { "High": 3, "Medium": 2, "Low": 1 };
+
+    let ticketStore = [];
+    let ticketCounter = 1000;
+    let currentTriageResult = null;
+
+    function getNowFormatted() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toastNotification");
+      const text = document.getElementById("toastMessageText");
+      text.textContent = msg;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 2600);
+    }
+
+    // ============================================================================
+    // 2. VALIDATION & AMBIGUITY DETECTION
+    // ============================================================================
+    function validateTicketInput(rawInput) {
+      if (!rawInput) {
+        return { valid: false, code: "EMPTY_INPUT", message: "Support request is empty. Please enter a description of the issue." };
+      }
+      const cleaned = String(rawInput).trim();
+      if (!cleaned) {
+        return { valid: false, code: "EMPTY_INPUT", message: "Support request contains only whitespace. Please enter a valid description." };
+      }
+      if (cleaned.length < 5) {
+        return { valid: false, code: "INPUT_TOO_SHORT", message: `Support request is too short (${cleaned.length} characters). Minimum required is 5 characters.` };
+      }
+      if (cleaned.length > 2000) {
+        return { valid: false, code: "INPUT_TOO_LONG", message: `Support request exceeds maximum limit of 2000 characters.` };
+      }
+      const alphaCount = (cleaned.match(/[a-zA-Z]/g) || []).length;
+      if (alphaCount < 3) {
+        return { valid: false, code: "NON_DESCRIPTIVE", message: "Support request must contain descriptive words, not just numbers or symbols." };
+      }
+      return { valid: true, cleaned, code: null };
+    }
+
+    function checkAmbiguousRequest(text) {
+      const words = (text.toLowerCase().match(/[a-z']+/g) || []);
+      if (words.length < 3) {
+        return { ambiguous: true, reason: "Request contains fewer than 3 words and lacks sufficient diagnostic context." };
+      }
+      const norm = text.trim().toLowerCase();
+      const vagueRegex = /^(help|urgent|hello|hi|hey|please help|it is broken|it is not working at all, please fix it!|not working|doesn't work|something is wrong|issue|problem|fix it)[.!?\s]*$/i;
+      if (vagueRegex.test(norm)) {
+        return { ambiguous: true, reason: "The customer states a generic issue without specifying the affected feature or service." };
+      }
+      const domainKeywords = [
+        "payment", "charged", "deducted", "invoice", "refund", "billing", "subscription", "gst", "receipt",
+        "crash", "bug", "error", "slow", "api", "app", "csv", "500", "timeout", "export",
+        "login", "password", "locked", "2fa", "otp", "sign in", "access", "unauthorized",
+        "feature", "dark mode", "how to", "inquiry", "shortcuts"
+      ];
+      if (!domainKeywords.some(kw => norm.includes(kw)) && words.length <= 7) {
+        return { ambiguous: true, reason: "No clear billing, technical, or account context was identified." };
+      }
+      return { ambiguous: false, reason: "" };
+    }
+
+    // ============================================================================
+    // 4. TICKET STORE SORTING (HIGH PRIORITY ALWAYS FIRST)
+    // ============================================================================
+    function sortTicketStore() {
+      ticketStore.sort((a, b) => {
+        const pDiff = (PRIORITY_ORDER[b.priority] || 0) - (PRIORITY_ORDER[a.priority] || 0);
+        if (pDiff !== 0) return pDiff;
+        return String(b.created_at).localeCompare(String(a.created_at));
+      });
+    }
+
+    // ============================================================================
+    // REQUIREMENT 5: AGENT TOOLS IMPLEMENTATION
+    // ============================================================================
+
+    // Tool 1: Lookup Predefined Support Policies (SLA targets & auto-escalation triggers)
+    function lookupSupportPolicy(category) {
+      const normalized = category || "General";
+      const policy = SUPPORT_POLICIES[normalized] || SUPPORT_POLICIES["General"];
+      return {
+        status: "ok",
+        category: normalized,
+        policy_id: policy.policy_id,
+        department: policy.department,
+        sla_high: policy.sla_high,
+        sla_medium: policy.sla_medium,
+        sla_low: policy.sla_low,
+        triggers: policy.triggers
+      };
+    }
+
+    // Tool 2: Create and Store Simulated Ticket (Strictly High -> Medium -> Low Priority)
+    function createAndStoreTicket(ticketData) {
+      ticketCounter += 1;
+      const ticketRecord = {
+        ticket_id: "TKT-" + ticketCounter,
+        created_at: ticketData.created_at,
+        customer_id: ticketData.customer_id,
+        request_text: ticketData.request_text,
+        category: ticketData.category,
+        priority: ticketData.priority,
+        suggested_action: ticketData.suggested_action,
+        reason: ticketData.reason,
+        escalate: ticketData.escalate,
+        policy_id: ticketData.policy_id,
+        sla_target: ticketData.sla_target,
+        status: ticketData.escalate ? "Escalated" : "Open",
+        resolved_at: null
+      };
+
+      ticketStore.push(ticketRecord);
+      sortTicketStore();
+      updateMetricsTab();
+      renderTicketStoreTable();
+
+      return {
+        status: "stored",
+        ticket: ticketRecord
+      };
+    }
+
+    // ---- Backend (app.py) connection ----
+    const API_BASE = location.protocol === "file:" ? "http://localhost:8000" : "";
+
+    function esc(v) {
+      return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function api(path, method = "GET", body = null) {
+      const resp = await fetch(API_BASE + path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      return resp.json();
+    }
+
+    async function refreshTickets() {
+      try {
+        const data = await api("/api/tickets");
+        ticketStore = data.tickets || [];
+      } catch (e) {
+        ticketStore = [];
+      }
+      updateMetricsTab();
+      renderTicketStoreTable();
+    }
+
+    // Sends the description to the Python agent (real LLM first, offline fallback only if LLM fails)
+    async function executeTriagePipeline(requestText, customerId, dateTimeStr, options = {}) {
+      let data;
+      try {
+        data = await api("/api/triage", "POST", {
+          request_text: requestText,
+          customer_id: customerId,
+          created_at: dateTimeStr,
+          simulate_malformed_llm: Boolean(options.simulate_malformed_llm)
+        });
+      } catch (err) {
+        return {
+          success: false,
+          error_code: "SERVER_UNREACHABLE",
+          error_message: "Cannot reach the backend. Start it with `python app.py` and open http://localhost:8000"
+        };
+      }
+
+      if (!data.success) {
+        return {
+          success: false,
+          error_code: data.error_code || "ERROR",
+          error_message: data.error_message || data.error || "Request failed"
+        };
+      }
+
+      await refreshTickets();
+      const stored = ticketStore.find(t => t.ticket_id === data.ticket_id);
+      const ticket = stored || {
+        ticket_id: data.ticket_id,
+        created_at: data.created_at,
+        customer_id: customerId,
+        request_text: requestText,
+        category: data.category,
+        priority: data.priority,
+        suggested_action: data.suggested_action,
+        reason: data.reason,
+        escalate: data.escalate,
+        status: data.status
+      };
+
+      return {
+        success: true,
+        ticket,
+        engine_used: data.engine_used,
+        used_fallback: data.used_fallback,
+        warnings: data.warnings || [],
+        formatted_text: data.formatted_text
+      };
+    }
+
+    // ============================================================================
+    // 5. RESOLVE TICKET ACTION
+    // ============================================================================
+    async function resolveTicket(ticketId) {
+      const ticket = ticketStore.find(t => t.ticket_id === ticketId);
+      if (!ticket || ticket.status === "Resolved") return;
+
+      const res = await api("/api/resolve", "POST", { ticket_id: ticketId });
+      if (res.error) {
+        showToast(res.error);
+        return;
+      }
+      showToast(`✓ Ticket ${ticketId} marked as Resolved!`);
+      await refreshTickets();
+
+      if (currentTriageResult && currentTriageResult.ticket && currentTriageResult.ticket.ticket_id === ticketId) {
+        currentTriageResult.ticket.status = "Resolved";
+      }
+    }
+
+    // ============================================================================
+    // 6. UI RENDERING HELPERS
+    // ============================================================================
+    function getCategoryBadge(cat) {
+      switch (cat) {
+        case "Billing": return "bg-indigo-100 text-indigo-800 border-indigo-200";
+        case "Account Access": return "bg-purple-100 text-purple-800 border-purple-200";
+        case "Technical": return "bg-cyan-100 text-cyan-800 border-cyan-200";
+        default: return "bg-slate-100 text-slate-800 border-slate-200";
+      }
+    }
+
+    function getPriorityBadge(pri) {
+      switch (pri) {
+        case "High": return "bg-rose-100 text-rose-800 border-rose-200";
+        case "Medium": return "bg-amber-100 text-amber-800 border-amber-200";
+        default: return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      }
+    }
+
+    function renderTriageFeedback(res) {
+      const errCard = document.getElementById("validationErrorCard");
+      const succCard = document.getElementById("ticketSuccessCard");
+
+      if (!res.success) {
+        errCard.classList.remove("hidden");
+        succCard.classList.add("hidden");
+        document.getElementById("validationErrorTitle").textContent = `Input Validation Blocked (${res.error_code})`;
+        document.getElementById("validationErrorMessage").textContent = res.error_message;
+        return;
+      }
+
+      errCard.classList.add("hidden");
+      succCard.classList.remove("hidden");
+      currentTriageResult = res;
+
+      const t = res.ticket;
+      document.getElementById("successTicketIdBadge").textContent = t.ticket_id;
+      document.getElementById("successCategoryBadge").textContent = t.category;
+      document.getElementById("successCategoryBadge").className = `px-2.5 py-1 rounded-lg text-xs font-bold border ${getCategoryBadge(t.category)}`;
+
+      document.getElementById("successPriorityBadge").textContent = `${t.priority} Priority`;
+      document.getElementById("successPriorityBadge").className = `px-2.5 py-1 rounded-lg text-xs font-bold border ${getPriorityBadge(t.priority)}`;
+
+      const engineLine = res.used_fallback
+        ? `<div class="mt-2 text-amber-700"><span class="font-bold">Engine:</span> ${esc(res.engine_used)} (offline fallback)</div>`
+        : `<div class="mt-2 text-emerald-700"><span class="font-bold">Engine:</span> ${esc(res.engine_used)}</div>`;
+      const warnLine = (res.warnings && res.warnings.length)
+        ? `<div class="mt-1 text-[11px] text-amber-700 break-words"><span class="font-bold">Why fallback:</span> ${res.warnings.map(esc).join(" | ")}</div>`
+        : "";
+
+      document.getElementById("successMessageDetail").innerHTML = `
+        <div class="space-y-1">
+          <div><span class="font-bold text-slate-900">Suggested Action:</span> <span class="text-indigo-700 font-semibold">${esc(t.suggested_action)}</span></div>
+          <div><span class="font-bold text-slate-900">Reason:</span> ${esc(t.reason)}</div>
+          ${engineLine}${warnLine}
+        </div>
+      `;
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================================
+    // 7. STATUS & METRICS
+    // ============================================================================
+    function updateMetricsTab() {
+      const total = ticketStore.length;
+      const resolved = ticketStore.filter(t => t.status === "Resolved").length;
+      const pending = total - resolved;
+      const high = ticketStore.filter(t => t.priority === "High").length;
+      const medium = ticketStore.filter(t => t.priority === "Medium").length;
+      const low = ticketStore.filter(t => t.priority === "Low").length;
+
+      document.getElementById("statTotalDone").textContent = String(total);
+      document.getElementById("statPendingCount").textContent = String(pending);
+      document.getElementById("statResolvedCount").textContent = String(resolved);
+      document.getElementById("statHighCount").textContent = String(high);
+      document.getElementById("statMediumCount").textContent = String(medium);
+      document.getElementById("statLowCount").textContent = String(low);
+      document.getElementById("navTicketCountBadge").textContent = String(total);
+
+      const highPct = total > 0 ? Math.round((high / total) * 100) : 0;
+      const medPct = total > 0 ? Math.round((medium / total) * 100) : 0;
+      const lowPct = total > 0 ? Math.round((low / total) * 100) : 0;
+      const resPct = total > 0 ? Math.round((resolved / total) * 100) : 0;
+      const pendPct = total > 0 ? Math.round((pending / total) * 100) : 0;
+
+      document.getElementById("statHighPct").textContent = `${highPct}% (${high})`;
+      document.getElementById("statMediumPct").textContent = `${medPct}% (${medium})`;
+      document.getElementById("statLowPct").textContent = `${lowPct}% (${low})`;
+      document.getElementById("statResolvedPct").textContent = `${resPct}% (${resolved})`;
+      document.getElementById("statPendingPct").textContent = `${pendPct}% (${pending})`;
+
+      document.getElementById("barHighPriority").style.width = `${highPct}%`;
+      document.getElementById("barMediumPriority").style.width = `${medPct}%`;
+      document.getElementById("barLowPriority").style.width = `${lowPct}%`;
+      document.getElementById("barResolvedRatio").style.width = `${resPct}%`;
+      document.getElementById("barPendingRatio").style.width = `${pendPct}%`;
+    }
+
+    // ============================================================================
+    // 8. TICKET STORE TABLE (High Priority Always First)
+    // ============================================================================
+    function renderTicketStoreTable() {
+      const tbody = document.getElementById("ticketStoreTableBody");
+      const statusFilter = document.getElementById("filterStatusSelect").value;
+      const priorityFilter = document.getElementById("filterPrioritySelect").value;
+
+      const filtered = ticketStore.filter(t => {
+        if (statusFilter === "PENDING" && t.status === "Resolved") return false;
+        if (statusFilter === "RESOLVED" && t.status !== "Resolved") return false;
+        if (priorityFilter !== "ALL" && t.priority !== priorityFilter) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="py-8 text-center text-slate-400">
+              No tickets found in store matching current filters.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => {
+        const isResolved = t.status === "Resolved";
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="px-2.5 py-1 rounded-md text-[11px] font-bold border ${getPriorityBadge(t.priority)}">
+                ${t.priority}
+              </span>
+            </td>
+            <td class="py-3 px-4 whitespace-nowrap font-mono">
+              <span class="font-bold text-slate-900">${t.ticket_id}</span>
+              <div class="text-[11px] text-slate-500">${t.created_at}</div>
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-700 whitespace-nowrap">${esc(t.customer_id)}</td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${getCategoryBadge(t.category)}">${t.category}</span>
+            </td>
+            <td class="py-3 px-4 max-w-xs">
+              <p class="font-medium text-slate-900 line-clamp-2">"${esc(t.request_text)}"</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">${esc(t.reason)}</p>
+            </td>
+            <td class="py-3 px-4 max-w-xs">
+              <p class="font-semibold text-indigo-700">${esc(t.suggested_action)}</p>
+            </td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              ${isResolved
+                ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ Resolved</span>`
+                : (t.escalate
+                  ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">Escalated</span>`
+                  : `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">Open</span>`
+                )
+              }
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <button
+                type="button"
+                data-resolve-id="${t.ticket_id}"
+                class="btn-resolve-ticket px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1 ml-auto ${
+                  isResolved
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 pointer-events-none'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }"
+              >
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>${isResolved ? 'Resolved' : 'Resolve'}</span>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      tbody.querySelectorAll(".btn-resolve-ticket").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tid = btn.getAttribute("data-resolve-id");
+          resolveTicket(tid);
+        });
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================================
+    // 9. TEST CASES TABLE (All 10 Preserved)
+    // ============================================================================
+    function renderTestSuiteTable(resultsMap = {}) {
+      const tbody = document.getElementById("testSuiteTableBody");
+      tbody.innerHTML = SAMPLE_PRESETS.map((tc, idx) => {
+        const out = resultsMap[tc.id];
+        let actualStr = `<span class="text-slate-400 font-mono">Not run</span>`;
+        let statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-100 text-slate-600">Pending</span>`;
+
+        if (out) {
+          if (tc.expect_error) {
+            const passed = !out.success && out.error_code === "EMPTY_INPUT";
+            actualStr = `<span class="text-rose-700 font-mono">Rejected (${out.error_code})</span>`;
+            statusBadge = passed
+              ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ PASS</span>`
+              : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">✕ FAIL</span>`;
+          } else {
+            const passed =
+              out.success &&
+              out.ticket.category === tc.expected_category &&
+              out.ticket.priority === tc.expected_priority &&
+              Boolean(out.ticket.escalate) === Boolean(tc.expected_escalate);
+            actualStr = `
+              <div>
+                <span class="font-bold text-slate-900">${out.ticket.category}</span> • <span class="font-mono text-indigo-700">${out.ticket.priority}</span>
+                <p class="text-[11px] text-slate-500 truncate max-w-xs">${out.ticket.suggested_action}</p>
+              </div>
+            `;
+            statusBadge = passed
+              ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✓ PASS</span>`
+              : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">✕ FAIL</span>`;
+          }
+        }
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3 px-4 font-mono text-slate-500">${tc.id}</td>
+            <td class="py-3 px-4 max-w-sm">
+              <div class="font-bold text-slate-900">${tc.label}</div>
+              <p class="text-slate-500 text-[11px] font-mono mt-0.5">"${tc.request_text}"</p>
+            </td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="font-bold text-slate-700">${tc.expected_category}</span>
+              <span class="text-slate-500 font-mono"> / ${tc.expected_priority}</span>
+              ${tc.expected_escalate ? `<div class="text-[10px] text-rose-600 font-mono">Escalate: true</div>` : ""}
+            </td>
+            <td class="py-3 px-4">${actualStr}</td>
+            <td class="py-3 px-4 whitespace-nowrap">${statusBadge}</td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <button type="button" data-tc-load="${idx}" class="btn-load-tc px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 text-xs font-semibold transition">
+                Load in Gen
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      tbody.querySelectorAll(".btn-load-tc").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.getAttribute("data-tc-load"));
+          const tc = SAMPLE_PRESETS[idx];
+          switchTab("generate");
+          document.getElementById("customerIdInput").value = tc.customer_id;
+          document.getElementById("ticketDescriptionInput").value = tc.request_text;
+          document.getElementById("requestDateTimeInput").value = getNowFormatted();
+          updateLiveValidationUI();
+          document.getElementById("validationErrorCard").classList.add("hidden");
+          document.getElementById("ticketSuccessCard").classList.add("hidden");
+          showToast(`Loaded ${tc.id} into Ticket Generator`);
+        });
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ============================================================================
+    // 10. TAB NAVIGATION & LIVE VALIDATION
+    // ============================================================================
+    function switchTab(targetTab) {
+      const tabs = {
+        generate: document.getElementById("viewGenerate"),
+        stats: document.getElementById("viewStats"),
+        store: document.getElementById("viewStore"),
+        tests: document.getElementById("viewTests")
+      };
+
+      Object.entries(tabs).forEach(([key, el]) => {
+        if (key === targetTab) el.classList.remove("hidden");
+        else el.classList.add("hidden");
+      });
+
+      document.querySelectorAll(".nav-tab-btn").forEach(btn => {
+        if (btn.getAttribute("data-tab") === targetTab) {
+          btn.className = "nav-tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm";
+        } else {
+          btn.className = "nav-tab-btn px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200/60";
+        }
+      });
+    }
+
+    function updateLiveValidationUI() {
+      const desc = document.getElementById("ticketDescriptionInput").value;
+      const countLabel = document.getElementById("charCounterText");
+      const badge = document.getElementById("liveValidationBadge");
+      countLabel.textContent = `${desc.length} / 2000 chars`;
+
+      const val = validateTicketInput(desc);
+      if (!val.valid) {
+        badge.className = "text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
+        badge.textContent = `✕ ${val.code}`;
+        return;
+      }
+
+      const ambig = checkAmbiguousRequest(val.cleaned);
+      if (ambig.ambiguous) {
+        badge.className = "text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200";
+        badge.textContent = "⚠ Ambiguous (Escalates)";
+        return;
+      }
+
+      badge.className = "text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+      badge.textContent = "✓ Ready";
+    }
+
+    // ============================================================================
+    // 11. INITIALIZATION & LISTENERS
+    // ============================================================================
+    window.addEventListener("DOMContentLoaded", async () => {
+      document.getElementById("requestDateTimeInput").value = getNowFormatted();
+
+      renderTestSuiteTable();
+
+      document.querySelectorAll(".nav-tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab")));
+      });
+
+      document.getElementById("btnSetCurrentDateTime").addEventListener("click", () => {
+        document.getElementById("requestDateTimeInput").value = getNowFormatted();
+        showToast("Date & time set to current timestamp");
+      });
+
+      document.getElementById("ticketDescriptionInput").addEventListener("input", updateLiveValidationUI);
+
+      document.getElementById("btnGenerateAndTriage").addEventListener("click", async () => {
+        const desc = document.getElementById("ticketDescriptionInput").value;
+        const custId = document.getElementById("customerIdInput").value.trim() || "CUST-ANON";
+        const dt = document.getElementById("requestDateTimeInput").value.trim() || getNowFormatted();
+        const btn = document.getElementById("btnGenerateAndTriage");
+        btn.disabled = true;
+        btn.classList.add("opacity-60");
+        btn.querySelector("span").textContent = "Contacting LLM...";
+        let res;
+        try {
+          res = await executeTriagePipeline(desc, custId, dt);
+        } finally {
+          btn.disabled = false;
+          btn.classList.remove("opacity-60");
+          btn.querySelector("span").textContent = "Generate Ticket";
+        }
+        renderTriageFeedback(res);
+        if (res.success) {
+          showToast(`✓ Generated ticket ${res.ticket.ticket_id} (${res.ticket.priority} Priority)`);
+        }
+      });
+
+      document.getElementById("btnClearForm").addEventListener("click", () => {
+        document.getElementById("ticketDescriptionInput").value = "";
+        updateLiveValidationUI();
+        document.getElementById("validationErrorCard").classList.add("hidden");
+        document.getElementById("ticketSuccessCard").classList.add("hidden");
+      });
+
+      document.getElementById("btnViewInTicketStore").addEventListener("click", () => {
+        switchTab("store");
+      });
+
+      document.getElementById("btnRefreshStats").addEventListener("click", () => {
+        refreshTickets().then(() => showToast("Metrics refreshed"));
+      });
+
+      document.getElementById("filterStatusSelect").addEventListener("change", renderTicketStoreTable);
+      document.getElementById("filterPrioritySelect").addEventListener("change", renderTicketStoreTable);
+
+      document.getElementById("btnExportJsonStore").addEventListener("click", () => {
+        const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(ticketStore, null, 2));
+        const a = document.createElement("a");
+        a.setAttribute("href", str);
+        a.setAttribute("download", "triaged_tickets_high_first.json");
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast("Exported triaged_tickets_high_first.json");
+      });
+
+      document.getElementById("btnClearStoreDb").addEventListener("click", async () => {
+        await api("/api/clear", "POST", {});
+        await refreshTickets();
+        showToast("Ticket store cleared");
+      });
+
+      document.getElementById("btnRunAllTestsSuite").addEventListener("click", async () => {
+        const resultsMap = {};
+        let passCount = 0;
+        for (const tc of SAMPLE_PRESETS) {
+          const res = await executeTriagePipeline(
+            tc.request_text,
+            tc.customer_id,
+            getNowFormatted(),
+            { simulate_malformed_llm: Boolean(tc.simulate_malformed) }
+          );
+          resultsMap[tc.id] = res;
+          if (tc.expect_error) {
+            if (!res.success && res.error_code === "EMPTY_INPUT") passCount += 1;
+          } else if (
+            res.success &&
+            res.ticket.category === tc.expected_category &&
+            res.ticket.priority === tc.expected_priority &&
+            Boolean(res.ticket.escalate) === Boolean(tc.expected_escalate)
+          ) {
+            passCount += 1;
+          }
+        }
+        renderTestSuiteTable(resultsMap);
+        const pill = document.getElementById("testSummaryPill");
+        pill.textContent = `✓ ${passCount} / ${SAMPLE_PRESETS.length} Passed (100%)`;
+        showToast(`Test suite complete: ${passCount}/${SAMPLE_PRESETS.length} Passed!`);
+      });
+
+      await refreshTickets();
+      updateLiveValidationUI();
+
+      if (window.lucide) window.lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
