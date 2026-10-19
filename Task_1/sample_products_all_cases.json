@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Mouse",
+    "price": 800
+  },
+  {
+    "name": "Keyboard",
+    "price": 1500
+  },
+  {
+    "name": "Standard Monitor",
+    "price": 12000
+  },
+  {
+    "name": "Defective Cable",
+    "price": -250
+  },
+  {
+    "name": "Promo Sticker"
+  },
+  {
+    "name": "Gaming Chair",
+    "price": "Free"
+  },
+  {
+    "name": "Headphones",
+    "price": null
+  },
+  {
+    "name": "Mousepad",
+    "price": true
+  },
+  {
+    "name": "Complimentary Badge",
+    "price": 0
+  },
+  {
+    "name": "Mechanical Keycaps",
+    "price": 3200
+  },
+  {
+    "name": "4K Ultra-Wide Monitor",
+    "price": 45000
+  },
+  {
+    "price": 99999
+  },
+  {
+    "name": "   ",
+    "price": 50000
+  },
+  null,
+  "Not a product dictionary"
+]
